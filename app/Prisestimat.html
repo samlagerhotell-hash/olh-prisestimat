@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OLH Prisestimat</title>
 <!-- Internal price estimator, colleague copy (Lager, 2026-10-28). Same prices and maths as the website: estimate.js next to this
-     file is a copy of the website's src/estimate.js, taken on the date in the footer. When prices change, Sam sends a new copy. -->
+     file is a copy of the website's src/estimate.js, taken on the date in the footer. launcher.ps1 pulls new versions from GitHub (olh-prisestimat). -->
 <style>
   /* Layout: inputs on the left, the worked calculation on the right; stacks on a narrow window. */
   :root { --bg:#f3f5f9; --panel:#ffffff; --fg:#14213d; --muted:#5b6782; --line:#dde2ec; --navy:#00205b; --red:#ba0c2f; --good:#1d7a46; --warn:#9a6200; --chip:#e8edf6;
@@ -102,7 +102,7 @@
   </div>
   <div class="panel" id="x-steps"></div>
 </div>
-<div class="sub" style="max-width:1100px;margin:16px auto 0">Prices as of 2026-10-28. Ask Sam for a new copy when prices change.</div>
+<div class="sub" style="max-width:1100px;margin:16px auto 0">Prices as of 2026-10-28. Updates itself when prices change.</div>
 
 <script>var module = { exports: {} };</script>
 <script src="estimate.js"></script>
