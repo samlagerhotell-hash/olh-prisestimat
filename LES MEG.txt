@@ -1,0 +1,19 @@
+OLH Prisestimat
+===============
+
+Intern prisestimator for Oslo Lagerhotell (3PL webshop og cross-docking), med utregningen vist steg for steg.
+Samme priser og regnestykker som prisestimatet på nettsiden. Priser eks. mva.
+
+Installere
+1. Pakk ut hele mappen (ikke kjør fra inne i zip-filen).
+2. Dobbeltklikk "Install.cmd".
+3. Åpne "OLH Prisestimat" fra skrivebordet.
+
+Krever Microsoft Edge (følger med Windows). Ingen admin-rettigheter, ingen internett.
+
+Nye priser
+Prisene er fra 28.10.2026 (står nederst i appen). Når prisene endres, får du en ny mappe fra Sam:
+kjør Install.cmd på nytt, så oppdateres den.
+
+Avinstallere
+Dobbeltklikk "Uninstall.cmd".

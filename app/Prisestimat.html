@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OLH Prisestimat</title>
+<!-- Internal price estimator, colleague copy (Lager, 2026-10-28). Same prices and maths as the website: estimate.js next to this
+     file is a copy of the website's src/estimate.js, taken on the date in the footer. When prices change, Sam sends a new copy. -->
+<style>
+  /* Layout: inputs on the left, the worked calculation on the right; stacks on a narrow window. */
+  :root { --bg:#f3f5f9; --panel:#ffffff; --fg:#14213d; --muted:#5b6782; --line:#dde2ec; --navy:#00205b; --red:#ba0c2f; --good:#1d7a46; --warn:#9a6200; --chip:#e8edf6;
+          --body: "Segoe UI", system-ui, sans-serif; --mono: "Cascadia Mono", Consolas, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1424; --panel:#161e33; --fg:#e7ebf4; --muted:#9aa5bf; --line:#2a3552; --navy:#8fb0ff; --red:#ff6b81; --good:#5fd08f; --warn:#f0b54a; --chip:#1f2a45; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--body); padding-block:20px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { font-size:20px; margin:0 0 2px; color:var(--navy); }
+  .sub { color:var(--muted); font-size:13px; }
+  .wrap { display:grid; grid-template-columns: 280px minmax(0,1fr); gap:20px; max-width:1100px; margin:16px auto 0; }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+  .wrap[hidden] { display:none; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  label { display:grid; gap:4px; font-weight:600; font-size:13px; margin-bottom:12px; }
+  input { font:inherit; font-size:18px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font-variant-numeric:tabular-nums; }
+  input:focus-visible { outline:2px solid var(--navy); outline-offset:1px; }
+  .total { font-size:30px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; margin:4px 0; }
+  .kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .kpi { background:var(--chip); border-radius:6px; padding:8px 10px; font-size:12px; color:var(--muted); }
+  .kpi b { display:block; font-size:16px; color:var(--fg); font-variant-numeric:tabular-nums; }
+  .step { border-top:1px solid var(--line); padding:14px 0; }
+  .step:first-child { border-top:0; padding-top:0; }
+  .step h2 { font-size:15px; margin:0 0 6px; display:flex; justify-content:space-between; gap:12px; }
+  .step h2 span:last-child { font-variant-numeric:tabular-nums; }
+  .step p { margin:4px 0; color:var(--muted); }
+  .math { font-family:var(--mono); font-size:13px; background:var(--chip); border-radius:6px; padding:8px 10px; margin:6px 0; overflow-x:auto; white-space:pre; }
+  .pill { display:inline-block; font-size:12px; font-weight:700; padding:1px 8px; border-radius:99px; background:var(--chip); }
+  .pill.good { color:var(--good); } .pill.warn { color:var(--warn); } .pill.red { color:var(--red); }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:14px; }
+  td { padding:5px 0; border-bottom:1px solid var(--line); } td:last-child { text-align:right; white-space:nowrap; padding-left:10px; vertical-align:top; }
+  .err { color:var(--red); font-weight:600; }
+  .tabs { display:flex; gap:6px; max-width:1100px; margin:14px auto 0; }
+  .tabs button { font:inherit; font-weight:600; padding:7px 16px; border:1px solid var(--line); border-radius:99px; background:var(--panel); color:var(--muted); cursor:pointer; }
+  .tabs button[aria-selected="true"] { background:var(--navy); border-color:var(--navy); color:var(--bg); }
+  .tabs button:focus-visible { outline:2px solid var(--navy); outline-offset:2px; }
+  select { font:inherit; font-size:16px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  .tip { margin-top:10px; padding:8px 10px; border-radius:6px; background:var(--chip); font-size:13px; color:var(--warn); }
+</style>
+</head>
+<body>
+<h1>OLH Prisestimat</h1>
+<div class="sub">Internal, with the working shown. Prices ex. VAT.</div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" id="t-3pl" aria-selected="true" aria-controls="tab-3pl">3PL webshop</button>
+  <button role="tab" id="t-xd" aria-selected="false" aria-controls="tab-xd">Cross-docking</button>
+</div>
+
+<div class="wrap" id="tab-3pl" role="tabpanel" aria-labelledby="t-3pl">
+  <div>
+    <div class="panel">
+      <label for="p">Pallets stored<input id="p" type="number" min="0" step="1" value="10"></label>
+      <label for="o">Webshop orders per month<input id="o" type="number" min="0" step="1" value="200"></label>
+      <label for="i">Pallets in per month<input id="i" type="number" min="0" step="1" value="2"></label>
+      <label for="u">Pallets out per month<input id="u" type="number" min="0" step="1" value="0"></label>
+      <div class="sub">Estimate</div>
+      <div class="total" id="total">-</div>
+      <div class="kpis">
+        <div class="kpi">Orders per pallet<b id="k-ratio">-</b></div>
+        <div class="kpi">Storage level<b id="k-level">-</b></div>
+        <div class="kpi">All-in per order<b id="k-order">-</b></div>
+        <div class="kpi">All-in per pallet<b id="k-pall">-</b></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:20px">
+      <div class="sub" style="margin-bottom:6px">What the customer sees on the website</div>
+      <table id="cust"></table>
+    </div>
+  </div>
+  <div class="panel" id="steps"></div>
+</div>
+
+<!-- Cross-docking (Sam, 2026-10-14: "yes, build it, but just a desktop app for now"). Not on the website. -->
+<div class="wrap" id="tab-xd" role="tabpanel" aria-labelledby="t-xd" hidden>
+  <div>
+    <div class="panel">
+      <label for="x-unit">Goods<select id="x-unit"><option value="pall">On pallets (per pallet)</option><option value="m2">Not on pallets (per m²)</option></select></label>
+      <label for="x-n"><span id="x-n-label">Pallets</span><input id="x-n" type="number" min="0" step="1" value="10"></label>
+      <label for="x-d">Days on site (arrival to departure)<input id="x-d" type="number" min="0" step="1" value="4"></label>
+      <label for="x-h">Extra handling, minutes (sorting, labels, picking)<input id="x-h" type="number" min="0" step="1" value="0"></label>
+      <label for="x-w">Pallets to waste<input id="x-w" type="number" min="0" step="1" value="0"></label>
+      <div class="sub">Estimate</div>
+      <div class="total" id="x-total">-</div>
+      <div class="kpis">
+        <div class="kpi">Per <span id="x-per-unit">pallet</span><b id="x-k-unit">-</b></div>
+        <div class="kpi">Per <span id="x-per-unit2">pallet</span> per day<b id="x-k-day">-</b></div>
+      </div>
+      <div class="tip" id="x-tip" hidden></div>
+    </div>
+    <div class="panel" style="margin-top:20px">
+      <div class="sub" style="margin-bottom:6px">What the customer would see</div>
+      <table id="x-cust"></table>
+    </div>
+  </div>
+  <div class="panel" id="x-steps"></div>
+</div>
+<div class="sub" style="max-width:1100px;margin:16px auto 0">Prices as of 2026-10-28. Ask Sam for a new copy when prices change.</div>
+
+<script>var module = { exports: {} };</script>
+<script src="estimate.js"></script>
+<script>
+(function () {
+  var E = module.exports, $ = function (id) { return document.getElementById(id); };
+  if (!E || !E.estimate) { $('steps').innerHTML = '<p class="err">Can\'t load the price file estimate.js. It must sit in the same folder as this page. Ask Sam for a fresh copy.</p>'; return; }
+  var P = E.PRICES;
+  var kr = function (x) { return Math.round(x).toLocaleString('nb-NO') + ' kr'; };
+  var ore = function (x) { return x.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var num = function (x) { return Math.round(x).toLocaleString('nb-NO'); };
+  // Two decimals the way the website rounds them (toFixed would show 54,45 where the page shows 54,46).
+  var snitt = function (x) { return x.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var n = function (id) { var v = Math.floor(Number($(id).value)); return v > 0 ? v : 0; };
+  var cost = function (o) { return o >= P.avtaleFra ? null : E.trinn(o).reduce(function (s, b) { return s + b.antall * b.pris; }, 0); };
+  var step = function (title, amount, body) { return '<div class="step"><h2><span>' + title + '</span><span>' + amount + '</span></h2>' + body + '</div>'; };
+  var math = function (t) { return '<div class="math">' + t + '</div>'; };
+
+  function run() {
+    var p = n('p'), o = n('o'), i = n('i'), u = n('u'), res = E.estimate({ paller: p, ordre: o, inn: i, ut: u });
+    var terskel = P.aktivOrdrePerPall * p, avtale = o >= P.avtaleFra, html = '';
+
+    // 1. Storage
+    var lag = res.lines[0][2], level, pill, body;
+    if (p === 0) { level = 'none'; pill = ''; body = '<p>No pallets, so no storage.</p>'; }
+    else if (o >= terskel) {
+      level = '175'; pill = '<span class="pill good">Active</span>';
+      body = '<p>' + num(o) + ' orders on ' + p + ' pallets is ' + (o / p).toFixed(1).replace('.', ',') + ' orders per pallet. That meets the ' + P.aktivOrdrePerPall + '-per-pallet line (' + num(terskel) + ' orders), so they get the active price.</p>'
+        + math(p + ' pallets × ' + P.pallAktiv + ' kr = ' + kr(p * P.pallAktiv));
+    } else if (o === 0) {
+      level = '220'; pill = '<span class="pill red">Plain storage</span>';
+      body = '<p>No webshop orders, so this is plain storage at ' + P.pallLager + ' kr. One order a month would drop them to ' + P.pallMellom + ' kr per pallet.</p>'
+        + math(p + ' pallets × ' + P.pallLager + ' kr = ' + kr(p * P.pallLager));
+    } else {
+      level = '200'; pill = '<span class="pill warn">Low activity</span>';
+      var naa = cost(o), ved = cost(terskel), normal = p * P.pallMellom;
+      body = '<p>' + num(o) + ' orders on ' + p + ' pallets is ' + (o / p).toFixed(1).replace('.', ',') + ' orders per pallet, under the line of ' + P.aktivOrdrePerPall + '. They need ' + num(terskel - o) + ' more orders a month (' + num(terskel) + ' in all) to reach ' + P.pallAktiv + ' kr.</p>'
+        + math(p + ' pallets × ' + P.pallMellom + ' kr = ' + kr(normal));
+      if (naa !== null && ved !== null) {
+        var withLow = normal + naa, atLine = p * P.pallAktiv + ved;
+        body += '<p><b>Cap check:</b> they must never pay more in total than they would at ' + num(terskel) + ' orders.</p>'
+          + math('Now:            ' + kr(normal) + ' storage + ' + kr(naa) + ' orders = ' + kr(withLow) + '\nAt the line:    ' + kr(p * P.pallAktiv) + ' storage + ' + kr(ved) + ' orders = ' + kr(atLine));
+        body += atLine < withLow
+          ? '<p><span class="pill good">Cap applies</span> Storage is cut by ' + kr(withLow - atLine) + ' to ' + kr(lag) + ', so the month costs the same as at the line.</p>'
+          : '<p><span class="pill">Cap not needed</span> They\'re already cheaper than at the line.</p>';
+      } else body += '<p>Orders at 1,200+ are by agreement, so the cap doesn\'t apply.</p>';
+    }
+    html += step('1. Storage ' + pill, kr(lag), body);
+
+    // 2. Orders
+    var bands = E.trinn(o), ob;
+    if (avtale) ob = '<p>' + num(o) + ' orders is ' + num(P.avtaleFra) + '+ a month, so the order price is by agreement and left out of the total.</p>';
+    else if (!o) ob = '<p>No webshop orders.</p>';
+    else ob = '<p>Each order is priced in its own band, so more orders never cost less in total.</p>'
+      + math(bands.map(function (b) { return num(b.antall) + ' × ' + b.pris + ' kr = ' + kr(b.antall * b.pris); }).join('\n'))
+      + '<p>Average ' + snitt(res.lines[1][2] / o) + ' kr per order.</p>';
+    html += step('2. Webshop orders', avtale ? 'By agreement' : kr(res.lines[1][2]), ob);
+
+    // 3. Pallets in and out
+    html += step('3. Pallets in and out', kr(res.lines[2][2] + res.lines[3][2]),
+      math(i + ' in × ' + ore(P.pallInn) + ' kr = ' + kr(i * P.pallInn) + '\n' + u + ' out × ' + ore(P.pallUt) + ' kr = ' + kr(u * P.pallUt)));
+
+    // 4. Total
+    html += step('Total per month', kr(res.sum) + (avtale ? ' + orders' : ''),
+      '<p>Packaging, freight, returns, B2B picks and heavy or bulky goods come on top. This is list price.</p>');
+    $('steps').innerHTML = html;
+
+    $('total').textContent = kr(res.sum) + (avtale ? ' + orders' : '');
+    $('k-ratio').textContent = p ? (o / p).toFixed(1).replace('.', ',') : '-';
+    $('k-level').textContent = level === 'none' ? '-' : level + ' kr';
+    $('k-order').textContent = o && !avtale ? (res.sum / o).toFixed(2).replace('.', ',') + ' kr' : '-';
+    $('k-pall').textContent = p ? kr(res.sum / p) : '-';
+    // The page's shorter texts (src/pages/prisestimat.html lagring() and calc()); the amounts come from estimate.js.
+    var ratio = p ? ' · ' + (Math.floor(o / p * 10) / 10).toLocaleString('nb-NO') + ' ordre per pall' : '', lagTekst;
+    if (level === '175' || level === 'none') lagTekst = p + ' paller × ' + P.pallAktiv + ' kr' + ratio;
+    else if (level === '220') lagTekst = p + ' paller × ' + P.pallLager + ' kr · kun lagring';
+    else lagTekst = p + ' paller × ' + P.pallMellom + ' kr' + ratio + ' (' + P.pallAktiv + ' kr fra ' + P.aktivOrdrePerPall + ')' + (lag < p * P.pallMellom ? ', med rabatt' : '');
+    var tekst = [lagTekst,
+      avtale ? num(o) + ' ordre i måneden: pris etter avtale' : o ? num(o) + ' ordre, snitt ' + snitt(res.lines[1][2] / o) + ' kr' : '0 ordre',
+      i + ' × ' + ore(P.pallInn) + ' kr', u + ' × ' + ore(P.pallUt) + ' kr'];
+    $('cust').innerHTML = res.lines.map(function (l, k) { return '<tr><td>' + l[0] + '<br><span class="sub">' + tekst[k] + '</span></td><td>' + (l[0] === 'Ordre' && avtale ? 'Etter avtale' : kr(l[2])) + '</td></tr>'; }).join('');
+  }
+  ['p', 'o', 'i', 'u'].forEach(function (id) { $(id).addEventListener('input', run); });
+  run();
+})();
+</script>
+<script>
+// Cross-docking. Prices and sums come from krysslast() in estimate.js, the same function the website's /cross-docking/ page and
+// the lead brief use; this tab only explains the steps. On pallets capped at the month package; minimum per delivery.
+(function () {
+  var E = module.exports, $ = function (id) { return document.getElementById(id); };
+  if (!E || !E.krysslast) { $('x-steps').innerHTML = '<p class="err">Can\'t load krysslast() from estimate.js. It must sit in the same folder as this page. Ask Sam for a fresh copy.</p>'; return; }
+  var X = E.XPRICES;
+  var kr = function (x) { return Math.round(x).toLocaleString('nb-NO') + ' kr'; };
+  var kr2 = function (x) { return x.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr'; };
+  var n = function (id) { var v = Math.floor(Number($(id).value)); return v > 0 ? v : 0; };
+  var math = function (t) { return '<div class="math">' + t + '</div>'; };
+  var step = function (title, amount, body) { return '<div class="step"><h2><span>' + title + '</span><span>' + amount + '</span></h2>' + body + '</div>'; };
+
+  function run() {
+    var m2 = $('x-unit').value === 'm2', u = m2 ? 'm²' : 'pallet', us = m2 ? 'm²' : 'pallets';
+    $('x-n-label').textContent = m2 ? 'Square metres (m²)' : 'Pallets';
+    $('x-per-unit').textContent = $('x-per-unit2').textContent = u;
+    var q = n('x-n'), d = n('x-d'), h = n('x-h'), w = n('x-w');
+    // Cap (Sam: "Cap it at the month package"): on pallets never more than 450 per started month; not on m² (floor space excludes handling).
+    var r = E.krysslast({ enhet: m2 ? 'm2' : 'pall', antall: q, dager: d, minutter: h, avfall: w });
+    var L = { dager: r.ekstra, dagKr: r.ekstra * X.dagPris, sum: r.stige }, kvarter = r.kvarter, handKr = kvarter * X.kvarter, avfKr = w * X.avfall;
+    var mnd = r.mnd, tak = r.tak, capped = r.capped, total = r.sum, html = '';
+
+    html += step('1. Through: in, up to 48 hours, out', kr(q * X.gjennom),
+      '<p>Unloading, up to ' + X.inkluderteDager + ' days on the floor and loading out, as one price per ' + u + '.</p>' + math(q + ' ' + us + ' × ' + X.gjennom + ' kr = ' + kr(q * X.gjennom)));
+    html += step('2. Extra days (from day 3)', kr(q * L.dagKr),
+      L.dager ? '<p>' + d + ' days on site: ' + L.dager + ' day' + (L.dager > 1 ? 's' : '') + ' past the first ' + X.inkluderteDager + ', at ' + X.dagPris + ' kr. A week comes to ' + (X.gjennom + 5 * X.dagPris) + ' kr per ' + u + '.</p>'
+        + math(q + ' ' + us + ' × ' + L.dager + ' days × ' + X.dagPris + ' kr = ' + kr(q * L.dagKr))
+        : '<p>' + d + ' day' + (d === 1 ? '' : 's') + ' on site is inside the 48 hours, so nothing extra.</p>');
+    if (capped) html += step('Cap: month package <span class="pill good">Applies</span>', '−' + kr(q * (L.sum - tak)),
+      '<p>The ladder comes to ' + kr(L.sum) + ' per pallet, more than the month package (' + mnd + ' month' + (mnd > 1 ? 's' : '') + ' × ' + X.mndPall + ' kr, handling included). So they pay the month package.</p>'
+        + math(q + ' pallets × ' + kr(tak) + ' = ' + kr(q * tak)));
+    if (r.minstepris) {
+      var grunn = capped ? q * tak : q * L.sum;
+      html += step('Minimum per delivery <span class="pill warn">Applies</span>', '+' + kr(X.minimum - grunn),
+        '<p>The ' + us + ' part comes to ' + kr(grunn) + ', under the minimum of ' + X.minimum + ' kr per delivery, so it is topped up. Handling and waste come on top.</p>'
+          + math(X.minimum + ' kr − ' + kr(grunn) + ' = ' + kr(X.minimum - grunn)));
+    }
+    html += step('3. Extras', kr(handKr + avfKr),
+      math(h + ' min = ' + kvarter + ' started quarter' + (kvarter === 1 ? '' : 's') + ' × ' + kr2(X.kvarter) + ' = ' + kr2(handKr) + '\n' + w + ' waste pallets × ' + X.avfall + ' kr = ' + kr(avfKr)));
+    html += step('Total', kr(total), '<p>Ex. VAT. Transport to and from the warehouse is not included.</p>');
+    $('x-steps').innerHTML = html;
+
+    $('x-total').textContent = kr(total);
+    $('x-k-unit').textContent = q ? kr(total / q) : '-';
+    $('x-k-day').textContent = q && d ? kr2(total / q / d) : '-';
+
+    // Long stay on m²: floor space (350 per m², handling agreed on top) may be cheaper. Pallets are capped above instead.
+    var alt = mnd * X.mndM2;
+    $('x-tip').hidden = !r.gulv;
+    $('x-tip').textContent = 'Floor space is cheaper here: ' + mnd + ' month' + (mnd > 1 ? 's' : '') + ' × ' + X.mndM2 + ' kr = ' + kr(alt) + ' per m² (handling agreed on top), against ' + kr(L.sum) + ' on the cross-dock ladder.';
+
+    // The customer box: the same lines the /cross-docking/ page shows.
+    $('x-cust').innerHTML = r.lines.map(function (r) { return '<tr><td>' + r[0] + '<br><span class="sub">' + r[1] + '</span></td><td>' + kr(r[2]) + '</td></tr>'; }).join('')
+      + '<tr><td><b>ca. ' + kr(total) + '</b></td><td></td></tr>';
+  }
+  ['x-unit', 'x-n', 'x-d', 'x-h', 'x-w'].forEach(function (id) { $(id).addEventListener('input', run); });
+  run();
+
+  // Tabs. The chosen tab is remembered for next time (a convenience only).
+  function show(id) {
+    ['3pl', 'xd'].forEach(function (t) { $('tab-' + t).hidden = t !== id; $('t-' + t).setAttribute('aria-selected', String(t === id)); });
+    try { localStorage.setItem('olh-prisestimat-tab', id); } catch (e) { /* fine: opens on 3PL */ }
+  }
+  $('t-3pl').addEventListener('click', function () { show('3pl'); });
+  $('t-xd').addEventListener('click', function () { show('xd'); });
+  var start = location.hash === '#xd' ? 'xd' : '3pl';
+  try { if (location.hash !== '#3pl' && localStorage.getItem('olh-prisestimat-tab') === 'xd') start = 'xd'; } catch (e) { /* ignore */ }
+  show(start);
+})();
+</script>
+</body>
+</html>
